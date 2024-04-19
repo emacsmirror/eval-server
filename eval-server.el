@@ -29,7 +29,7 @@
 ;; To test:
 
 ;; (start-eval-server "lights" 8710 '(+))
-;; (eval-at "lights" "stories" 8710 '(+ 1 2))
+;; (eval-at "lights" "rocket-sam" 8710 '(+ 1 2))
 ;;
 ;; ~/.authinfo:
 ;; machine lights port 8710 password secret
@@ -284,16 +284,19 @@ If ERROR, encrypt that instead."
   (let* ((message 
 	  (with-temp-buffer
 	    (set-buffer-multibyte nil)
-	    (insert (format "%S\n"
-			    (or error
-				(if auth
-				    ;; If we use auth, then we
-				    ;; also timestamp the data
-				    ;; to avoid replay attacks.
-				    (list :stamp (format-time-string "%FT%T%z")
-					  :nonce nonce
-					  :data form)
-				  (list :data form)))))
+	    (insert
+	     (encode-coding-string
+	      (format "%S\n"
+		      (or error
+			  (if auth
+			      ;; If we use auth, then we
+			      ;; also timestamp the data
+			      ;; to avoid replay attacks.
+			      (list :stamp (format-time-string "%FT%T%z")
+				    :nonce nonce
+				    :data form)
+			    (list :data form))))
+	      'utf-8))
 	    (buffer-string)))
 	 (encrypted
 	  (eval-server--encrypt
@@ -352,7 +355,9 @@ If ERROR, encrypt that instead."
 	     (message
 	      (ignore-errors
 		(car (read-from-string
-		      (eval-server--pkcs7-unpad string))))))
+		      (decode-coding-string
+		       (eval-server--pkcs7-unpad string)
+		       'utf-8))))))
 	(eval-server--debug message)
 	(cond
 	 ((not (consp message))
